@@ -1,0 +1,28 @@
+{
+	"flutter": {
+		"platforms": {
+			"android": {
+				"default": {
+					"projectId": "velocy-app",
+					"appId": "1:555617500653:android:b431662847c9b225917be4",
+					"fileOutput": "android/app/google-services.json"
+				}
+			},
+			"dart": {
+				"lib/firebase_options.dart": {
+					"projectId": "velocy-app",
+					"configurations": {
+						"android": "1:555617500653:android:b431662847c9b225917be4",
+						"ios": "1:555617500653:ios:0b83d707992b14ed917be4",
+						"macos": "1:555617500653:ios:0b83d707992b14ed917be4",
+						"web": "1:555617500653:web:1de3c27f3641f909917be4",
+						"windows": "1:555617500653:web:a718b46ea90efdff917be4"
+					}
+				}
+			}
+		}
+	},
+	"firestore": {
+		"rules": "firestore.rules"
+	}
+}

@@ -1,6 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'register_screen.dart';
+
 import 'home_screen.dart';
+import 'officer_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,6 +15,90 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _routeBasedOnRole(User user) async {
+    try {
+      final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final snapshot = await userRef.get();
+
+      if (!snapshot.exists) {
+        _showMessage(
+          'Akun berhasil login, tapi profil Firestore belum ada. Tambahkan dokumen users/{uid} dengan role officer atau user dulu.',
+        );
+        return;
+      }
+
+      final data = snapshot.data();
+      final role = (data?['role'] as String?) ?? 'user';
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              role == 'officer' ? const OfficerScreen() : const HomeScreen(),
+        ),
+        (route) => false,
+      );
+      return;
+    } catch (e, st) {
+      debugPrint('Error routing by role: $e');
+      debugPrintStack(stackTrace: st);
+      rethrow;
+    }
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Email dan password wajib diisi.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await _routeBasedOnRole(credential.user!);
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during login: ${e.code} ${e.message}');
+      _showMessage(e.message ?? 'Login gagal.');
+    } catch (e, st) {
+      debugPrint('Unknown error during login: $e');
+      debugPrintStack(stackTrace: st);
+      _showMessage('Login gagal: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -150,6 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _passwordController,
                         obscureText: _obscurePassword,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -202,15 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Primary Button
                       ElevatedButton(
-                        onPressed: () {
-                          // Handle Login Logic
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomeScreen(),
-                            ),
-                          );
-                        },
+                        onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F6E56),
                           foregroundColor: Colors.white,
@@ -220,14 +302,23 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text(
-                          'Masuk',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Masuk',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ],
                   ),

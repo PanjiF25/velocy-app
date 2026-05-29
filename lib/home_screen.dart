@@ -1,5 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/material.dart';
+import 'active_trip_screen.dart';
 import 'navigation_helper.dart';
+import 'station_detail_screen.dart';
+import 'trip_session_state.dart';
+import 'package:latlong2/latlong.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,6 +17,58 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  static const LatLng _itsCampusCenter = LatLng(-7.2798, 112.7951);
+  final List<_StationMapPoint> _stationPoints = const [
+    _StationMapPoint(
+      stationName: 'Stasiun Gedung Teknik Informatika',
+      address: 'Gedung Teknik Informatika ITS, Sukolilo, Surabaya',
+      qrValue: '{"dockCode":"A1","stationName":"Stasiun Gedung Teknik Informatika","address":"Gedung Teknik Informatika ITS, Sukolilo, Surabaya"}',
+      position: LatLng(-7.2817, 112.7961),
+      color: Color(0xFF00543C),
+    ),
+    _StationMapPoint(
+      stationName: 'Stasiun Perpustakaan Pusat ITS',
+      address: 'Perpustakaan Pusat ITS, Sukolilo, Surabaya',
+      qrValue: '{"dockCode":"B2","stationName":"Stasiun Perpustakaan Pusat ITS","address":"Perpustakaan Pusat ITS, Sukolilo, Surabaya"}',
+      position: LatLng(-7.2777, 112.7944),
+      color: Color(0xFFF6B700),
+    ),
+    _StationMapPoint(
+      stationName: 'Stasiun Departemen Arsitektur',
+      address: 'Departemen Arsitektur ITS, Sukolilo, Surabaya',
+      qrValue: '{"dockCode":"C3","stationName":"Stasiun Departemen Arsitektur","address":"Departemen Arsitektur ITS, Sukolilo, Surabaya"}',
+      position: LatLng(-7.2829, 112.7933),
+      color: Color(0xFFBA1A1A),
+    ),
+  ];
+
+  Future<String> _loadGreetingName() async {
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) {
+      return 'Pengguna';
+    }
+
+    final profileSnapshot =
+        await FirebaseFirestore.instance.collection('users').doc(authUser.uid).get();
+    final profile = profileSnapshot.data();
+
+    final displayName = (profile?['displayName'] as String?)?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final authDisplayName = authUser.displayName?.trim();
+    if (authDisplayName != null && authDisplayName.isNotEmpty) {
+      return authDisplayName;
+    }
+
+    final email = authUser.email?.trim();
+    if (email != null && email.contains('@')) {
+      return email.split('@').first;
+    }
+
+    return 'Pengguna';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,10 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFFF9F9FF),
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF3F4944)),
-          onPressed: () {},
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Velocy',
           style: TextStyle(
@@ -44,108 +100,152 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Greeting Section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Halo, Muhammad Panji Fathuroni!',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF141B2B),
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Mau ke mana hari ini?',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      color: Color(0xFF3F4944),
-                    ),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: FutureBuilder<String>(
+                future: _loadGreetingName(),
+                builder: (context, snapshot) {
+                  final greetingName = snapshot.data ?? 'Pengguna';
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Halo, $greetingName!',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF141B2B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Mau ke mana hari ini?',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: Color(0xFF3F4944),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),
 
-            // Active Trip Banner
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF18755C),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.directions_bike, color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'VLY-002',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.0,
+            if (TripSessionState.hasActiveTrip) ...[
+              // Active Trip Banner
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF18755C),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.directions_bike, color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'VLY-002',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '00:22:14',
+                            style: TextStyle(
+                              fontFamily: 'Roboto Mono',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ActiveTripScreen(
+                                bikeCode: 'VLY-002',
+                                originStationName: 'Stasiun Gedung Teknik Informatika',
+                                currentLocationLabel: 'Stasiun Gedung Teknik Informatika',
+                                startTime: DateTime.now().subtract(const Duration(minutes: 19, seconds: 41)),
+                                destinationStationName: 'Stasiun Perpustakaan Pusat ITS',
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '00:14:32',
-                          style: TextStyle(
-                            fontFamily: 'Roboto Mono',
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 1.0,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white70),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                      ],
-                    ),
-                    OutlinedButton(
-                      onPressed: () => switchToTab(context, 2),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        side: const BorderSide(color: Colors.white70),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                        child: const Text(
+                          'Lihat Perjalanan',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      child: const Text(
-                        'Lihat Perjalanan',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F3FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBEC9C3)),
+                  ),
+                  child: const Text(
+                    'Tidak ada perjalanan aktif',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF3F4944),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // Map Section
             Padding(
@@ -177,79 +277,81 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Map Placeholder
-                  Container(
-                    height: 220,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE9EDFF),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFBEC9C3)),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Fake Map background pattern
-                        Positioned.fill(
-                          child: Opacity(
-                            opacity: 0.4,
-                            child: Image.network(
-                              'https://www.transparenttextures.com/patterns/cubes.png',
-                              fit: BoxFit.cover,
-                              color: const Color(0xFF0F6E56),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      height: 220,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFBEC9C3)),
+                        color: const Color(0xFFF3F7F5),
+                      ),
+                      child: Stack(
+                        children: [
+                          FlutterMap(
+                            options: MapOptions(
+                              initialCenter: _itsCampusCenter,
+                              initialZoom: 15.3,
+                              interactionOptions: const InteractionOptions(
+                                flags: InteractiveFlag.drag |
+                                    InteractiveFlag.pinchZoom |
+                                    InteractiveFlag.doubleTapZoom,
+                              ),
                             ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.example.velocy_app',
+                                tileProvider: NetworkTileProvider(),
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _itsCampusCenter,
+                                    width: 18,
+                                    height: 18,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                      ),
+                                    ),
+                                  ),
+                                  ..._stationPoints.map(
+                                    (station) => Marker(
+                                      point: station.position,
+                                      width: 44,
+                                      height: 44,
+                                      child: GestureDetector(
+                                        onTap: () => _openStationDetail(station),
+                                        child: Icon(
+                                          Icons.location_on,
+                                          color: station.color,
+                                          size: 36,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                        // Pins
-                        const Positioned(
-                          top: 40,
-                          left: 100,
-                          child: Icon(Icons.location_on, color: Color(0xFF00543C), size: 32),
-                        ),
-                        const Positioned(
-                          top: 100,
-                          right: 80,
-                          child: Icon(Icons.location_on, color: Colors.amber, size: 32),
-                        ),
-                        const Positioned(
-                          bottom: 80,
-                          left: 150,
-                          child: Icon(Icons.directions_bike, color: Color(0xFF1960A6), size: 18),
-                        ),
-                        // User location dot
-                        Positioned(
-                          bottom: 100,
-                          left: 130,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                        // Location button
-                        Positioned(
-                          bottom: 12,
-                          right: 12,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: const BoxDecoration(
+                          Positioned(
+                            right: 12,
+                            bottom: 12,
+                            child: Material(
                               color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 4,
-                                )
-                              ],
+                              shape: const CircleBorder(),
+                              elevation: 2,
+                              child: IconButton(
+                                icon: const Icon(Icons.my_location, color: Color(0xFF005440)),
+                                onPressed: () {},
+                              ),
                             ),
-                            child: const Icon(Icons.my_location, color: Color(0xFF005440), size: 20),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -271,60 +373,61 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Rent Card
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBEC9C3)),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F3FF),
-                        shape: BoxShape.circle,
+            if (!TripSessionState.hasActiveTrip) ...[
+              // Rent Card
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBEC9C3)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0D000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
                       ),
-                      child: const Icon(Icons.qr_code_scanner, color: Color(0xFF005440), size: 32),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Pinjam Sepeda',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF141B2B),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF1F3FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.qr_code_scanner, color: Color(0xFF005440), size: 32),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Arahkan kamera ke QR Code di sepeda atau stasiun',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        color: Color(0xFF3F4944),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Pinjam Sepeda',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF141B2B),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Arahkan kamera ke QR Code di sepeda atau stasiun',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          color: Color(0xFF3F4944),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+            ],
 
             // Nearby Stations
             Padding(
@@ -413,6 +516,14 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Profile',
           ),
         ],
+      ),
+    );
+  }
+
+  void _openStationDetail(_StationMapPoint station) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => StationDetailScreen.fromQr(station.qrValue),
       ),
     );
   }
@@ -519,4 +630,20 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+class _StationMapPoint {
+  const _StationMapPoint({
+    required this.stationName,
+    required this.address,
+    required this.qrValue,
+    required this.position,
+    required this.color,
+  });
+
+  final String stationName;
+  final String address;
+  final String qrValue;
+  final LatLng position;
+  final Color color;
 }

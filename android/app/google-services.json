@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "555617500653",
+    "project_id": "velocy-app",
+    "storage_bucket": "velocy-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555617500653:android:b431662847c9b225917be4",
+        "android_client_info": {
+          "package_name": "com.example.velocy_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARgmZ-7AiMHT2bfR9K0eWo0kZMTWUYsdQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

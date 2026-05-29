@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -9,6 +13,94 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _handleRegister() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+      _showMessage('Semua field wajib diisi.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-user',
+          message: 'Akun gagal dibuat.',
+        );
+      }
+
+      try {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'role': 'user',
+          'displayName': name,
+          'email': email,
+          'phone': phone,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e, st) {
+        debugPrint('Firestore write failed: $e');
+        debugPrintStack(stackTrace: st);
+        _showMessage('Registrasi gagal: tidak bisa menyimpan profil. $e');
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during register: ${e.code} ${e.message}');
+      _showMessage(e.message ?? 'Registrasi gagal.');
+    } catch (e, st) {
+      debugPrint('Unknown error during register: $e');
+      debugPrintStack(stackTrace: st);
+      _showMessage('Registrasi gagal: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +126,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Daftar untuk mulai meminjam sepeda',
+                  'Daftar akun pengguna untuk mulai meminjam sepeda',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 14,
@@ -78,6 +170,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _nameController,
                         keyboardType: TextInputType.name,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -126,6 +219,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -174,6 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -222,6 +317,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       TextFormField(
+                        controller: _passwordController,
                         obscureText: _obscurePassword,
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -270,11 +366,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 24),
 
+                      const Text(
+                        'Akun petugas dibuat oleh admin, bukan dari halaman ini.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: Color(0xFF3F4944),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
                       // Submit Button
                       ElevatedButton(
-                        onPressed: () {
-                          // TODO: Handle Register Logic
-                        },
+                        onPressed: _isLoading ? null : _handleRegister,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F6E56),
                           foregroundColor: Colors.white,
@@ -284,14 +389,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
-                        child: const Text(
-                          'Daftar',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Daftar',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ],
                   ),

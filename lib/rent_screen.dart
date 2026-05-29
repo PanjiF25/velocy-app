@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import 'dock_unlock_service.dart';
 import 'navigation_helper.dart';
+import 'station_detail_screen.dart';
 
 class RentScreen extends StatefulWidget {
 	const RentScreen({super.key});
@@ -13,22 +13,9 @@ class RentScreen extends StatefulWidget {
 
 class _RentScreenState extends State<RentScreen> {
 	final MobileScannerController _controller = MobileScannerController();
-	final DockUnlockService _dockUnlockService = const DockUnlockService(
-		useMock: bool.fromEnvironment('USE_MOCK_DOCK', defaultValue: true),
-		brokerHost: String.fromEnvironment('MQTT_BROKER_HOST', defaultValue: ''),
-		brokerPort: int.fromEnvironment('MQTT_BROKER_PORT', defaultValue: 1883),
-		topicPrefix: String.fromEnvironment('MQTT_TOPIC_PREFIX', defaultValue: 'velocy/dock'),
-		clientId: String.fromEnvironment('MQTT_CLIENT_ID', defaultValue: 'velocy_app'),
-		username: String.fromEnvironment('MQTT_USERNAME', defaultValue: ''),
-		password: String.fromEnvironment('MQTT_PASSWORD', defaultValue: ''),
-	);
 	bool _isScanning = true;
 	bool _showResultSheet = false;
-	bool _isOpeningDock = false;
 	String _scannedQrValue = '';
-	final String _bikeCode = 'VLY-002';
-	final String _dockCode = 'A1';
-	final String _stationName = 'Teknik Informatika';
 
 	@override
 	void dispose() {
@@ -222,11 +209,10 @@ class _RentScreenState extends State<RentScreen> {
 											opacity: _showResultSheet ? 1 : 0,
 											duration: const Duration(milliseconds: 200),
 											child: _ResultBottomSheet(
-												bikeCode: _bikeCode,
-												dockCode: _dockCode,
-												stationName: _stationName,
-												isLoading: _isOpeningDock,
-												onStart: _handleStartPinjam,
+												qrValue: _scannedQrValue,
+												dockCode: StationDetailData.fromQr(_scannedQrValue).selectedDockLabel,
+												stationName: StationDetailData.fromQr(_scannedQrValue).stationName,
+												onStart: _handleOpenStationDetail,
 												onCancel: () async {
 													setState(() {
 														_showResultSheet = false;
@@ -246,56 +232,40 @@ class _RentScreenState extends State<RentScreen> {
 		);
 	}
 
-	Future<void> _handleStartPinjam() async {
-		if (_isOpeningDock) return;
+	Future<void> _handleOpenStationDetail() async {
+		final qrValue = _scannedQrValue;
+		if (qrValue.isEmpty) return;
+
+		final stationData = StationDetailData.fromQr(qrValue);
 
 		setState(() {
-			_isOpeningDock = true;
-		});
-
-		final response = await _dockUnlockService.unlockDock(
-			DockUnlockRequest(
-				qrValue: _scannedQrValue,
-				bikeCode: _bikeCode,
-				dockCode: _dockCode,
-				stationName: _stationName,
-			),
-		);
-
-		if (!mounted) return;
-
-		setState(() {
-			_isOpeningDock = false;
 			_showResultSheet = false;
 			_isScanning = true;
 		});
 
-		await _controller.start();
-
-		if (!mounted) return;
-		ScaffoldMessenger.of(context).showSnackBar(
-			SnackBar(
-				content: Text(response.message),
-				backgroundColor: response.success ? const Color(0xFF0F6E56) : const Color(0xFFBA1A1A),
+		await Navigator.of(context).push(
+			MaterialPageRoute(
+				builder: (context) => StationDetailScreen(data: stationData),
 			),
 		);
+
+		if (!mounted) return;
+		await _controller.start();
 	}
 }
 
 class _ResultBottomSheet extends StatelessWidget {
 	const _ResultBottomSheet({
-		required this.bikeCode,
+		required this.qrValue,
 		required this.dockCode,
 		required this.stationName,
-		required this.isLoading,
 		required this.onStart,
 		required this.onCancel,
 	});
 
-	final String bikeCode;
+	final String qrValue;
 	final String dockCode;
 	final String stationName;
-	final bool isLoading;
 	final VoidCallback onStart;
 	final VoidCallback onCancel;
 
@@ -360,7 +330,7 @@ class _ResultBottomSheet extends StatelessWidget {
 							),
 							child: Column(
 								children: [
-									_PairRow(label: 'Sepeda', value: bikeCode),
+									_PairRow(label: 'QR', value: qrValue),
 									const _BottomSheetDivider(),
 									_PairRow(label: 'Dok', value: dockCode),
 									const _BottomSheetDivider(),
@@ -373,7 +343,7 @@ class _ResultBottomSheet extends StatelessWidget {
 							width: double.infinity,
 							height: 44,
 							child: ElevatedButton(
-								onPressed: isLoading ? null : onStart,
+								onPressed: onStart,
 								style: ElevatedButton.styleFrom(
 									backgroundColor: const Color(0xFF0F6E56),
 									foregroundColor: Colors.white,
@@ -382,7 +352,7 @@ class _ResultBottomSheet extends StatelessWidget {
 									),
 								),
 								child: Text(
-									isLoading ? 'Membuka solenoid...' : 'Mulai Pinjam',
+									'Lihat Detail Stasiun',
 									style: const TextStyle(
 										fontFamily: 'Inter',
 										fontSize: 14,
