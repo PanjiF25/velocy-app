@@ -17,4 +17,5 @@ samples, guidance on mobile development, and a full API reference.
 
 ## ESP32 Dock Control
 
+Panduan lengkap setup MQTT dari nol sampai bisa dipakai ada di [MQTT_SETUP.md](MQTT_SETUP.md).
 Contoh firmware ESP32 MQTT ada di [esp32/README.md](esp32/README.md).

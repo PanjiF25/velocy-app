@@ -1,25 +1,31 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
 constexpr char WIFI_SSID[] = "YOUR_WIFI_SSID";
 constexpr char WIFI_PASSWORD[] = "YOUR_WIFI_PASSWORD";
-constexpr char MQTT_BROKER_HOST[] = "192.168.1.10";
-constexpr uint16_t MQTT_BROKER_PORT = 1883;
+constexpr char MQTT_BROKER_HOST[] = "YOUR_HIVEMQ_HOST";
+constexpr uint16_t MQTT_BROKER_PORT = 8883;
 constexpr char MQTT_USERNAME[] = "";
 constexpr char MQTT_PASSWORD[] = "";
 constexpr char MQTT_TOPIC_PREFIX[] = "velocy/dock";
 constexpr char DEVICE_DOCK_CODE[] = "A1";
 constexpr char DEVICE_ID[] = "esp32-dock-a1";
+constexpr bool MQTT_USE_TLS = true;
 constexpr uint8_t RELAY_PIN = 23;
 constexpr bool RELAY_ACTIVE_LOW = true;
 constexpr unsigned long UNLOCK_PULSE_MS = 1200;
 constexpr unsigned long WIFI_RETRY_MS = 10000;
 constexpr unsigned long MQTT_RETRY_MS = 5000;
 
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
+#if MQTT_USE_TLS
+WiFiClientSecure networkClient;
+#else
+WiFiClient networkClient;
+#endif
+PubSubClient mqttClient(networkClient);
 unsigned long lastWifiAttempt = 0;
 unsigned long lastMqttAttempt = 0;
 
@@ -153,6 +159,10 @@ void connectMqtt() {
     return;
   }
   lastMqttAttempt = millis();
+
+  if (MQTT_USE_TLS) {
+    networkClient.setInsecure();
+  }
 
   mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
   mqttClient.setCallback(mqttCallback);

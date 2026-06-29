@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'splash_screen.dart';
+import 'package:velocy_app/ui/common/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:velocy_app/services/firebase_options.dart';
+import 'package:velocy_app/core/providers/settings_provider.dart';
+import 'package:velocy_app/core/theme/theme_utils.dart';
+import 'package:velocy_app/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,10 +13,11 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    // Initialization may fail if platform config not added yet (google-services.json / plist)
-    // App can still run but Firestore calls will error until config is provided.
     debugPrint('Firebase.initializeApp() failed: $e');
   }
+
+  // Initialize local notifications
+  await NotificationService().init();
 
   runApp(const VelocyApp());
 }
@@ -23,14 +27,45 @@ class VelocyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Velocy',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F6E56)),
-        useMaterial3: true,
-      ),
-      home: const SplashScreen(),
+    final settings = SettingsProvider();
+    
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Velocy',
+          debugShowCheckedModeBanner: false,
+          themeMode: settings.themeMode,
+          locale: settings.locale,
+          // Define a basic light theme
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppTheme.primaryLight,
+              brightness: Brightness.light,
+              background: AppTheme.bgLight,
+              surface: AppTheme.surfaceLight,
+              error: AppTheme.errorLight,
+              primaryContainer: AppTheme.primaryContainerLight,
+            ),
+            scaffoldBackgroundColor: AppTheme.bgLight,
+            useMaterial3: true,
+          ),
+          // Define a basic dark theme
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppTheme.primaryDark,
+              brightness: Brightness.dark,
+              background: AppTheme.bgDark,
+              surface: AppTheme.surfaceDark,
+              error: AppTheme.errorDark,
+              primaryContainer: AppTheme.primaryContainerDark,
+            ),
+            scaffoldBackgroundColor: AppTheme.bgDark,
+            useMaterial3: true,
+          ),
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

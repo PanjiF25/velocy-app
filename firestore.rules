@@ -16,7 +16,15 @@ service cloud.firestore {
     }
 
     function isOfficer() {
-      return userRole() == 'officer';
+      return signedIn() && exists(/databases/$(database)/documents/officers/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && (userRole() == 'admin' || request.auth.token.email == 'admin@velocy.com');
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
     match /users/{userId} {
@@ -31,7 +39,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.role == resource.data.role;
 
-      allow delete: if false;
+      allow delete: if signedIn() && (userRole() == 'admin' || request.auth.token.email == 'admin@velocy.com');
     }
 
     match /reports/{reportId} {
@@ -53,7 +61,14 @@ service cloud.firestore {
 
     match /docks/{dockId} {
       allow read: if signedIn();
-      allow write: if isOfficer();
+      allow update: if signedIn();
+      allow create, delete: if isOfficer();
+    }
+
+    match /bikes/{bikeId} {
+      allow read: if signedIn();
+      allow update: if signedIn();
+      allow create, delete: if isOfficer();
     }
 
     match /trips/{tripId} {
@@ -61,6 +76,26 @@ service cloud.firestore {
       allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if signedIn() && (resource.data.userId == request.auth.uid || isOfficer());
       allow delete: if false;
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if signedIn();
+    }
+
+    match /officers/{officerId} {
+      allow read, write: if signedIn();
+      
+      match /shifts/{shiftId} {
+        allow read, write: if signedIn();
+      }
+    }
+
+    match /shift_requests/{requestId} {
+      allow read, write: if signedIn();
+    }
+
+    match /support_chats/{chatId} {
+      allow read, write: if signedIn();
     }
   }
 }
